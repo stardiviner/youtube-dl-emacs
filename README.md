@@ -20,11 +20,6 @@ its priority adjusted (<kbd>[</kbd> and <kbd>]</kbd>).
 
 ## Limitations
 
-While youtube-dl supports a large number of video sites, this package
-only supports YouTube videos. This keeps things simple, and YouTube is
-really the only video hosting site with enough content worthy of using a
-video download manager.
-
 To display the size and progress, this package relies on a specific
 output format from youtube-dl. Using an external downloader
 (`--external-downloader`) breaks this, as can mucking around too much
