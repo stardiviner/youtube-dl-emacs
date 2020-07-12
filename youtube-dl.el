@@ -93,7 +93,8 @@ Instead of --rate-limit use `youtube-dl-slow-rate'."
 (cl-defstruct (youtube-dl-item (:constructor youtube-dl-item--create)
                                (:copier nil))
   "Represents a single video to be downloaded with youtube-dl."
-  id           ; YouTube video ID (string)
+  url          ; Video URL (string)
+  vid          ; Video ID (integer)
   directory    ; Working directory for youtube-dl (string or nil)
   destination  ; Preferred destination file (string or nil)
   failures     ; Number of video download failures (integer)
@@ -156,19 +157,22 @@ since this is just used for display purposes."
             start (match-end 0)))
     pair))
 
-(defun youtube-dl--destination (output)
-  "Return the destination file for the given output (if any).
+(defun youtube-dl--get-destination (url)
+  "Return the destination filename for the given `URL' (if any).
 The destination filename may potentially straddle two output
 chunks, but this is incredibly unlikely. It's only used for
 display purposes anyway."
-  (when (string-match " Destination: \\([^\n]+\\)" output)
-    (match-string 1 output)))
+  (with-temp-buffer
+    (call-process
+     "youtube-dl"
+     nil t nil
+     "--get-filename" url)
+    (replace-regexp-in-string "\n" "" (buffer-string))))
 
 (defun youtube-dl--filter (proc output)
   (let* ((item (plist-get (process-plist proc) :item))
          (progress (youtube-dl--progress output))
-         (destination (unless (youtube-dl-item-title item)
-                        (youtube-dl--destination output))))
+         (destination (youtube-dl-item-destination item)))
     ;; Append to program log.
     (let ((logged (list output)))
       (if (youtube-dl-item-log item)
@@ -203,13 +207,16 @@ display purposes anyway."
             (cl-decf (youtube-dl-item-failures current-item))
             (kill-process youtube-dl-process)) ; sentinel will clean up
         ;; No subprocess running, start a one.
-        (let* ((directory (youtube-dl-item-directory item))
+        (let* ((item-url (youtube-dl-item-url item))
+               ;; fix link is an org-mode link is a property list.
+               (url (if (stringp item-url)
+                        item-url (substring-no-properties item-url)))
+               (directory (youtube-dl-item-directory item))
                (destination (youtube-dl-item-destination item))
                (default-directory
                  (if directory
                      (concat (directory-file-name directory) "/")
                    (concat (directory-file-name youtube-dl-directory) "/")))
-               (id (youtube-dl-item-id item))
                (slow-p (youtube-dl-item-slow-p item))
                (proc (progn
                        (mkdir default-directory t)
@@ -220,19 +227,21 @@ display purposes anyway."
                                        `("--rate-limit" ,youtube-dl-slow-rate))
                                      (when destination
                                        `("--output" ,destination))
-                                     `("--" ,id))))))
+                                     `("--" ,url))))))
           (set-process-plist proc (list :item item))
           (set-process-sentinel proc #'youtube-dl--sentinel)
           (set-process-filter proc #'youtube-dl--filter)
           (setf youtube-dl-process proc))))
     (youtube-dl--redisplay)))
 
-(defun youtube-dl--id-from-url (url)
-  "Return the 11-character video ID for URL."
-  (save-match-data
-    (when (string-match
-           "\\(?:\\.be/\\|v=\\|v%3D\\|^\\)\\([-_a-zA-Z0-9]\\{11\\}\\)" url)
-      (match-string 1 url))))
+(defun youtube-dl--get-vid (url)
+  "Get video `URL' video vid number with youtube-dl option `--get-id'."
+  (with-temp-buffer
+    (call-process
+     "youtube-dl"
+     nil t nil
+     "--get-id" url)
+    (replace-regexp-in-string "\n" "" (buffer-string))))
 
 ;;;###autoload
 (cl-defun youtube-dl
@@ -243,9 +252,12 @@ display purposes anyway."
           "URL: " (or (thing-at-point 'url)
                       (when interprogram-paste-function
                         (funcall interprogram-paste-function))))))
-  (let* ((id (youtube-dl--id-from-url url))
+  ;; remove this ID failure only on youtube.com, use URL as ID. or use youtube-dl extracted title, or hash on URL.
+  (let* ((vid (youtube-dl--get-vid url))
+         (destination (youtube-dl--get-destination url))
          (full-dir (expand-file-name (or directory "") youtube-dl-directory))
-         (item (youtube-dl-item--create :id id
+         (item (youtube-dl-item--create :url url
+                                        :vid vid
                                         :failures 0
                                         :priority priority
                                         :paused-p paused
@@ -254,12 +266,12 @@ display purposes anyway."
                                         :destination destination
                                         :title title)))
     (prog1 item
-      (when id
+      (when url
         (youtube-dl--add item)
         (youtube-dl--run)))))
 
 (defun youtube-dl--playlist-list (playlist)
-  "For each video, return one plist with :index, :id, and :title."
+  "For each video, return one plist with :index, :vid, and :title."
   (with-temp-buffer
     (when (zerop (call-process youtube-dl-program nil t nil
                                "--ignore-config"
@@ -272,7 +284,7 @@ display purposes anyway."
                for video = (ignore-errors (json-read))
                while video
                collect (list :index index
-                             :id    (plist-get video :id)
+                             :vid   (plist-get video :vid)
                              :title (plist-get video :title))))))
 
 (defun youtube-dl--playlist-reverse (list)
@@ -328,7 +340,7 @@ of reversed playlists.
                  (prefix (format prefix-format index))
                  (title (format "%s-%s" prefix (plist-get video :title)))
                  (dest (format "%s-%s" prefix "%(title)s-%(id)s.%(ext)s")))
-            (youtube-dl (plist-get video :id)
+            (youtube-dl (plist-get video :url)
                         :title title
                         :priority priority
                         :directory directory
@@ -387,11 +399,11 @@ of reversed playlists.
   (let* ((n (1- (line-number-at-pos)))
          (item (nth n youtube-dl-items)))
     (when item
-      (let ((url (concat "https://youtu.be/" (youtube-dl-item-id item))))
+      (let ((url (concat "https://youtu.be/" (youtube-dl-item-vid item))))
         (if (fboundp 'gui-set-selection)
             (gui-set-selection nil url)     ; >= Emacs 25
           (with-no-warnings
-           (x-set-selection 'PRIMARY url))) ; <= Emacs 24
+            (x-set-selection 'PRIMARY url))) ; <= Emacs 24
         (message "Yanked %s" url)))))
 
 (defun youtube-dl-list-kill ()
@@ -484,7 +496,7 @@ of reversed playlists.
         header-line-format
         (format "%s%-11s %-6.6s %-10.10s %s"
                 (propertize " " 'display '((space :align-to 0)))
-                "id" "done" "size" "title")))
+                "vid" "done" "size" "title")))
 
 (defun youtube-dl--buffer ()
   "Returns the queue listing buffer."
@@ -513,7 +525,7 @@ of reversed playlists.
            (string-paused (propertize "P" 'face 'youtube-dl-pause)))
       (erase-buffer)
       (dolist (item youtube-dl-items)
-        (let ((id (youtube-dl-item-id item))
+        (let ((vid (youtube-dl-item-vid item))
               (failures (youtube-dl-item-failures item))
               (priority (youtube-dl-item-priority item))
               (progress (youtube-dl-item-progress item))
@@ -524,8 +536,8 @@ of reversed playlists.
           (insert
            (format "%-11s %-6.6s %-10.10s %s%s%s%s\n"
                    (if (eq active item)
-                       (propertize id 'face 'youtube-dl-active)
-                     id)
+                       (propertize vid 'face 'youtube-dl-active)
+                     vid)
                    (or progress "0.0%")
                    (or total "???")
                    (if (= failures 0)
