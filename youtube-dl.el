@@ -52,6 +52,16 @@ Instead of --rate-limit use `youtube-dl-slow-rate'."
   :group 'youtube-dl
   :type '(repeat string))
 
+(defcustom youtube-dl-proxy ""
+  "Specify the proxy for youtube-dl command.
+For example:
+
+127.0.0.1:8118
+socks5://127.0.0.1:1086"
+  :type 'string
+  :safe #'stringp
+  :group 'youtube-dl)
+
 (defcustom youtube-dl-max-failures 8
   "Maximum number of retries for a single video."
   :group 'youtube-dl
@@ -166,6 +176,10 @@ display purposes anyway."
     (call-process
      "youtube-dl"
      nil t nil
+     (unless (string-empty-p youtube-dl-proxy)
+       "--proxy")
+     (unless (string-empty-p youtube-dl-proxy)
+       youtube-dl-proxy)
      "--get-filename" url)
     (replace-regexp-in-string "\n" "" (buffer-string))))
 
@@ -223,6 +237,8 @@ display purposes anyway."
                        (apply #'start-process
                               "youtube-dl" nil youtube-dl-program "--newline"
                               (nconc (cl-copy-list youtube-dl-arguments)
+                                     (unless (string-empty-p youtube-dl-proxy)
+                                       `("--proxy" ,youtube-dl-proxy))
                                      (when slow-p
                                        `("--rate-limit" ,youtube-dl-slow-rate))
                                      (when destination
@@ -240,6 +256,10 @@ display purposes anyway."
     (call-process
      "youtube-dl"
      nil t nil
+     (unless (string-empty-p youtube-dl-proxy)
+       "--proxy")
+     (unless (string-empty-p youtube-dl-proxy)
+       youtube-dl-proxy)
      "--get-id" url)
     (replace-regexp-in-string "\n" "" (buffer-string))))
 
