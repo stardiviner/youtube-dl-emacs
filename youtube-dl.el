@@ -62,6 +62,12 @@ socks5://127.0.0.1:1086"
   :safe #'stringp
   :group 'youtube-dl)
 
+(defcustom youtube-dl-proxy-url-list '()
+  "A list of URL domains which should use proxy for youtube-dl."
+  :type 'list
+  :safe #'listp
+  :group 'youtube-dl)
+
 (defcustom youtube-dl-max-failures 8
   "Maximum number of retries for a single video."
   :group 'youtube-dl
@@ -123,6 +129,13 @@ socks5://127.0.0.1:1086"
 (defvar youtube-dl-process nil
   "The currently active youtube-dl process.")
 
+(defun youtube-dl--proxy-p (url return-value)
+  "Decide whether toggle proxy for youtube-dl."
+  (let ((domain (url-domain (url-generic-parse-url url))))
+    (when (and (member domain youtube-dl-proxy-url-list)
+               (not (string-empty-p youtube-dl-proxy)))
+      return-value)))
+
 (defun youtube-dl--next ()
   "Returns the next item to be downloaded."
   (let (best best-score)
@@ -176,10 +189,8 @@ display purposes anyway."
     (call-process
      "youtube-dl"
      nil t nil
-     (unless (string-empty-p youtube-dl-proxy)
-       "--proxy")
-     (unless (string-empty-p youtube-dl-proxy)
-       youtube-dl-proxy)
+     (youtube-dl--proxy-p url "--proxy")
+     (youtube-dl--proxy-p url youtube-dl-proxy)
      "--get-filename" url)
     (replace-regexp-in-string "\n" "" (buffer-string))))
 
@@ -237,8 +248,7 @@ display purposes anyway."
                        (apply #'start-process
                               "youtube-dl" nil youtube-dl-program "--newline"
                               (nconc (cl-copy-list youtube-dl-arguments)
-                                     (unless (string-empty-p youtube-dl-proxy)
-                                       `("--proxy" ,youtube-dl-proxy))
+                                     (youtube-dl--proxy-p url `("--proxy" ,youtube-dl-proxy))
                                      (when slow-p
                                        `("--rate-limit" ,youtube-dl-slow-rate))
                                      (when destination
@@ -256,10 +266,8 @@ display purposes anyway."
     (call-process
      "youtube-dl"
      nil t nil
-     (unless (string-empty-p youtube-dl-proxy)
-       "--proxy")
-     (unless (string-empty-p youtube-dl-proxy)
-       youtube-dl-proxy)
+     (youtube-dl--proxy-p url "--proxy")
+     (youtube-dl--proxy-p url youtube-dl-proxy)
      "--get-id" url)
     (replace-regexp-in-string "\n" "" (buffer-string))))
 
