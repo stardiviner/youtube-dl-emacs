@@ -129,12 +129,18 @@ socks5://127.0.0.1:1086"
 (defvar youtube-dl-process nil
   "The currently active youtube-dl process.")
 
-(defun youtube-dl--proxy-p (url return-value)
-  "Decide whether toggle proxy for youtube-dl."
+(defun youtube-dl--proxy-append (url &optional option value)
+  "Decide whether append proxy option in youtube-dl command based on URL."
   (let ((domain (url-domain (url-generic-parse-url url))))
-    (when (and (member domain youtube-dl-proxy-url-list)
-               (not (string-empty-p youtube-dl-proxy)))
-      return-value)))
+    (if (and (member domain youtube-dl-proxy-url-list) ; <---------- whether toggle proxy?
+             (not (string-empty-p youtube-dl-proxy)))
+        (if option                      ; <------------------------- whether has command-line option?
+            (list "--proxy" youtube-dl-proxy option value)
+          (list "--proxy" youtube-dl-proxy))
+      (if option                        ; <------------------------- return original arguments for no proxy
+          (list option value)
+        nil    ; <------------------------- return nothing for url no need proxy
+        ))))
 
 (defun youtube-dl--next ()
   "Returns the next item to be downloaded."
@@ -186,12 +192,10 @@ The destination filename may potentially straddle two output
 chunks, but this is incredibly unlikely. It's only used for
 display purposes anyway."
   (with-temp-buffer
-    (call-process
-     "youtube-dl"
-     nil t nil
-     (youtube-dl--proxy-p url "--proxy")
-     (youtube-dl--proxy-p url youtube-dl-proxy)
-     "--get-filename" url)
+    (apply #'call-process
+           "youtube-dl"
+           nil t nil
+           (youtube-dl--proxy-append url "--get-filename" url))
     (replace-regexp-in-string "\n" "" (buffer-string))))
 
 (defun youtube-dl--filter (proc output)
@@ -248,7 +252,7 @@ display purposes anyway."
                        (apply #'start-process
                               "youtube-dl" nil youtube-dl-program "--newline"
                               (nconc (cl-copy-list youtube-dl-arguments)
-                                     (youtube-dl--proxy-p url `("--proxy" ,youtube-dl-proxy))
+                                     (youtube-dl--proxy-append url)
                                      (when slow-p
                                        `("--rate-limit" ,youtube-dl-slow-rate))
                                      (when destination
@@ -263,12 +267,10 @@ display purposes anyway."
 (defun youtube-dl--get-vid (url)
   "Get video `URL' video vid number with youtube-dl option `--get-id'."
   (with-temp-buffer
-    (call-process
-     "youtube-dl"
-     nil t nil
-     (youtube-dl--proxy-p url "--proxy")
-     (youtube-dl--proxy-p url youtube-dl-proxy)
-     "--get-id" url)
+    (apply #'call-process
+           "youtube-dl"
+           nil t nil
+           (youtube-dl--proxy-append url "--get-id" url))
     (replace-regexp-in-string "\n" "" (buffer-string))))
 
 ;;;###autoload
