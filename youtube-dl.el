@@ -600,7 +600,7 @@ of reversed playlists.
   "Display a list of all videos queued for download."
   (interactive)
   (youtube-dl--fill-listing)
-  (pop-to-buffer (youtube-dl--buffer)))
+  (display-buffer (youtube-dl--buffer)))
 
 (provide 'youtube-dl)
 
