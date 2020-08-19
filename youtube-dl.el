@@ -68,6 +68,12 @@ socks5://127.0.0.1:1086"
   :safe #'listp
   :group 'youtube-dl)
 
+(defcustom youtube-dl-auto-show-list t
+  "Auto show youtube-dl-list buffer."
+  :type 'boolean
+  :safe #'booleanp
+  :group 'youtube-dl)
+
 (defcustom youtube-dl-max-failures 8
   "Maximum number of retries for a single video."
   :group 'youtube-dl
@@ -298,7 +304,9 @@ display purposes anyway."
     (prog1 item
       (when url
         (youtube-dl--add item)
-        (youtube-dl--run)))))
+        (youtube-dl--run)
+        (when youtube-dl-auto-show-list
+          (youtube-dl-list))))))
 
 (defun youtube-dl--playlist-list (playlist)
   "For each video, return one plist with :index, :vid, and :title."
