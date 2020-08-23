@@ -570,9 +570,15 @@ of reversed playlists.
               (paused-p (youtube-dl-item-paused-p item))
               (slow-p (youtube-dl-item-slow-p item))
               (total (youtube-dl-item-total item))
-              (title (youtube-dl-item-title item)))
+              (title (youtube-dl-item-title item))
+              (url (youtube-dl-item-url item)))
           (insert
-           (format "%-11s %-6.6s %-10.10s %s%s%s%s\n"
+           ;;                            failure
+           ;;       vid progress   total   | priority
+           ;;        |      |        |     | | slow/pause
+           ;;        |      |        |     | | | Title
+           ;;        v      v        v     v v v | URL
+           (format "%-11s %-6.6s %-10.10s %s%s%s%s %s\n"
                    (if (eq active item)
                        (propertize vid 'face 'youtube-dl-active)
                      vid)
@@ -593,7 +599,8 @@ of reversed playlists.
                          (paused-p
                           (concat string-paused " "))
                          (""))
-                   (or title ""))))))))
+                   (or title "")
+                   (or url ""))))))))
 
 ;;;###autoload
 (defun youtube-dl-list ()
