@@ -90,22 +90,22 @@ socks5://127.0.0.1:1086"
   :group 'youtube-dl)
 
 (defface youtube-dl-slow
-  '((t :inherit font-lock-variable-name-face))
+  '((t :inherit font-lock-variable-name-face :foreground "orange"))
   "Face for highlighting the slow (S) tag."
   :group 'youtube-dl)
 
 (defface youtube-dl-pause
-  '((t :inherit font-lock-type-face))
+  '((t :inherit font-lock-type-face :foreground "blue"))
   "Face for highlighting the pause (P) tag."
   :group 'youtube-dl)
 
 (defface youtube-dl-priority
-  '((t :inherit font-lock-keyword-face))
+  '((t :inherit font-lock-keyword-face :foreground "green"))
   "Face for highlighting the priority marker."
   :group 'youtube-dl)
 
 (defface youtube-dl-failure
-  '((t :inherit font-lock-warning-face))
+  '((t :inherit font-lock-warning-face :foreground "red"))
   "Face for highlighting the failure marker."
   :group 'youtube-dl)
 
