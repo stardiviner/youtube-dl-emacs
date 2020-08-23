@@ -507,6 +507,20 @@ of reversed playlists.
   (interactive)
   (youtube-dl-list-priority-modify -1))
 
+(defun youtube-dl-list-resume-download ()
+  "Resume failure downloading item under point."
+  (interactive)
+  (let* ((n (1- (line-number-at-pos)))
+         (item (nth n youtube-dl-items)))
+    (when item
+      (when (youtube-dl-item-paused-p item)
+        (youtube-dl-list-toggle-pause)
+        (unless (zerop (youtube-dl-item-failures item))
+          (youtube-dl (substring-no-properties (get-text-property (point) 'url)))
+          (when (= n (1- (length youtube-dl-items)))
+            (forward-line -1))
+          (youtube-dl--remove item))))))
+
 (defvar youtube-dl-list-mode-map
   (let ((map (make-sparse-keymap)))
     (prog1 map
@@ -522,7 +536,8 @@ of reversed playlists.
       (define-key map "s" #'youtube-dl-list-toggle-slow)
       (define-key map "S" #'youtube-dl-list-toggle-slow-all)
       (define-key map "]" #'youtube-dl-list-priority-up)
-      (define-key map "[" #'youtube-dl-list-priority-down)))
+      (define-key map "[" #'youtube-dl-list-priority-down)
+      (define-key map "r" #'youtube-dl-list-resume-download)))
   "Keymap for `youtube-dl-list-mode'")
 
 (define-derived-mode youtube-dl-list-mode special-mode "youtube-dl"
@@ -573,34 +588,35 @@ of reversed playlists.
               (title (youtube-dl-item-title item))
               (url (youtube-dl-item-url item)))
           (insert
-           ;;                            failure
-           ;;       vid progress   total   | priority
-           ;;        |      |        |     | | slow/pause
-           ;;        |      |        |     | | | Title
-           ;;        v      v        v     v v v | URL
-           (format "%-11s %-6.6s %-10.10s %s%s%s%s %s\n"
-                   (if (eq active item)
-                       (propertize vid 'face 'youtube-dl-active)
-                     vid)
-                   (or progress "0.0%")
-                   (or total "???")
-                   (if (= failures 0)
-                       ""
-                     (propertize (format "[%d] " failures)
-                                 'face 'youtube-dl-failure))
-                   (if (= priority 0)
-                       ""
-                     (propertize (format "%+d " priority)
-                                 'face 'youtube-dl-priority))
-                   (cond ((and slow-p paused-p)
-                          (concat string-slow string-paused " "))
-                         (slow-p
-                          (concat string-slow " "))
-                         (paused-p
-                          (concat string-paused " "))
-                         (""))
-                   (or title "")
-                   (or url ""))))))))
+           (propertize
+            ;;                            failure
+            ;;       vid progress   total   | priority
+            ;;        |      |        |     | | slow/pause
+            ;;        |      |        |     | | | Title
+            ;;        v      v        v     v v v v
+            (format "%-11s %-6.6s %-10.10s %s%s%s%s\n"
+                    (if (eq active item)
+                        (propertize vid 'face 'youtube-dl-active)
+                      vid)
+                    (or progress "0.0%")
+                    (or total "???")
+                    (if (= failures 0)
+                        ""
+                      (propertize (format "[%d] " failures)
+                                  'face 'youtube-dl-failure))
+                    (if (= priority 0)
+                        ""
+                      (propertize (format "%+d " priority)
+                                  'face 'youtube-dl-priority))
+                    (cond ((and slow-p paused-p)
+                           (concat string-slow string-paused " "))
+                          (slow-p
+                           (concat string-slow " "))
+                          (paused-p
+                           (concat string-paused " "))
+                          (""))
+                    (or title ""))
+            'url url)))))))
 
 ;;;###autoload
 (defun youtube-dl-list ()
