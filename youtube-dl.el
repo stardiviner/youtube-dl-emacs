@@ -513,13 +513,10 @@ of reversed playlists.
   (let* ((n (1- (line-number-at-pos)))
          (item (nth n youtube-dl-items)))
     (when item
+      (setf (youtube-dl-item-failures item) 0)
       (when (youtube-dl-item-paused-p item)
-        (youtube-dl-list-toggle-pause)
-        (unless (zerop (youtube-dl-item-failures item))
-          (youtube-dl (substring-no-properties (get-text-property (point) 'url)))
-          (when (= n (1- (length youtube-dl-items)))
-            (forward-line -1))
-          (youtube-dl--remove item))))))
+        (youtube-dl-list-toggle-pause))
+      (youtube-dl--run))))
 
 (defvar youtube-dl-list-mode-map
   (let ((map (make-sparse-keymap)))
